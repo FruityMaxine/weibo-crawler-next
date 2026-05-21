@@ -64,3 +64,6 @@ logs/
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+frontend/tsconfig.tsbuildinfo
+# 防御: TS 源码目录绝不允许有 .js (tsc -b 残留)
+frontend/src/**/*.js
