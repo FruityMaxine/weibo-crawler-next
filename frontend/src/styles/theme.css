@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  background: #010102;
+  color: #f7f8f8;
+}
+
+/* 滚动条 — Linear 风格细线 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: #23252a; border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover { background: #34343a; }
+
+/* mark 高亮 — 全文搜索 snippet 用 */
+mark {
+  background: rgba(94, 106, 210, 0.25);
+  color: #f7f8f8;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* 链接 */
+a {
+  color: #5e6ad2;
+  text-decoration: none;
+}
+a:hover {
+  color: #828fff;
+}
+
+/* 选中态 */
+::selection {
+  background: rgba(94, 106, 210, 0.35);
+  color: #ffffff;
+}

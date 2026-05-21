@@ -59,3 +59,8 @@ logs/
 *.spec
 *.bin
 *.exe
+
+# Tick 4 前端
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/

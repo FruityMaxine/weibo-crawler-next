@@ -12,9 +12,9 @@
 
 | 阶段 | 目标 | 状态 |
 |---|---|---|
-| Tick 2 → v0.1 | 后端骨架 + 抓取引擎 core + 数据模型 + 简易 CLI | 待启动 |
-| Tick 3 → v0.2 | Textual TUI（上下键菜单）+ 6 种导出器 + 配置中心 | 待启动 |
-| Tick 4 → v0.3 | React WebUI（React Bits + Linear 风）+ WS + FTS5 全文搜索 | 待启动 |
+| Tick 2 → v0.1 | 后端骨架 + 抓取引擎 core + 数据模型 + 简易 CLI | ✓ 完成 |
+| Tick 3 → v0.2 | Textual TUI（上下键菜单）+ 6 种导出器 + 配置中心 | ✓ 完成 |
+| Tick 4 → v0.3 | React WebUI（React Bits + Linear 风）+ WS + FTS5 全文搜索 | ✓ 完成 |
 | Tick 5 → v0.4 | 高阶风控（Cookie/Proxy/UA 池）+ 多部署 + Webhook + 文档 | 待启动 |
 
 ---
