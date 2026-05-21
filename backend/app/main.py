@@ -32,7 +32,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
         title="weibo-crawler-next",
-        version="0.1.0.0",
+        version="0.2.0.0",
         description="现代化微博数据采集与分析平台",
         lifespan=lifespan,
     )

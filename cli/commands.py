@@ -224,11 +224,78 @@ def serve(host: str | None, port: int | None, reload: bool) -> None:
 
 @cli.command()
 def tui() -> None:
-    """启动 Textual TUI (Tick 3 实现, 当前为占位)."""
-    console.print(
-        "[yellow]TUI 模式将在 Tick 3 实现 (Textual 框架, 上下键菜单).[/yellow]\n"
-        "当前可用命令: wcn run / wcn user / wcn weibo / wcn tasks / wcn serve / wcn info"
-    )
+    """启动 Textual TUI (上下键菜单 / 6 子屏)."""
+    try:
+        from cli.tui import WCNApp
+    except ImportError as e:
+        console.print(
+            f"[red]TUI 需要 [tui] extras: uv pip install -e '.[tui]'  ({e})[/red]"
+        )
+        return
+    WCNApp().run()
+
+
+@cli.command()
+@click.option(
+    "-f", "--format", "fmt",
+    type=click.Choice(["csv", "json", "sqlite", "mysql", "mongodb", "webhook"]),
+    default=None, help="导出格式 (留空用 .env WCN_EXPORT_DEFAULT_FORMAT)",
+)
+@click.option("--uid", type=int, default=None, help="只导出指定 uid")
+@click.option("-n", "--limit", type=int, default=1000, help="最大条数")
+@click.option("-o", "--output", default=None, help="自定义文件名 (CSV/JSON/SQLite 用)")
+def export(fmt: str | None, uid: int | None, limit: int, output: str | None) -> None:
+    """导出本地数据到 CSV / JSON / SQLite / MySQL / MongoDB / Webhook."""
+    import asyncio as _asyncio
+    from backend.app.config import get_settings as _gs
+    from backend.app.db.base import get_sessionmaker as _gsm
+    from backend.app.exporters import available_exporters, get_exporter
+    from backend.app.exporters.base import ExportContext
+    from backend.app.services import WeiboService as _WS
+
+    fmt = fmt or _gs().export_default_format
+    s = _gs()
+
+    async def _run() -> None:
+        sm = _gsm()
+        async with sm() as session:
+            items = await _WS(session).list_recent(limit=limit, uid=uid)
+        if not items:
+            console.print(
+                "[yellow]本地无微博数据可导出, 先用 `wcn run -u <uid>` 抓取.[/yellow]"
+            )
+            return
+        exporter = get_exporter(fmt)
+        ctx = ExportContext(uid=uid, output_dir=s.output_dir, filename=output)
+        with console.status(f"[#5e6ad2]导出 {len(items)} 条到 {fmt}...[/]"):
+            result = await exporter.export(items, ctx)
+        if result.success:
+            console.print(
+                f"[green]✓[/] 导出 [bold]{result.item_count}[/] 条到 "
+                f"[cyan]{result.output_path}[/] ({result.duration_ms} ms)"
+            )
+        else:
+            console.print(f"[red]✗ 导出失败:[/] {result.error}")
+            console.print(
+                "[#8a8f98]可用 exporter: "
+                + ", ".join(k for k, _ in available_exporters())
+                + "[/]"
+            )
+
+    _asyncio.run(_run())
+
+
+@cli.command(name="exporters")
+def list_exporters() -> None:
+    """列出可用导出器."""
+    from backend.app.exporters import available_exporters
+
+    table = Table(title="可用导出器", show_header=True, header_style="bold magenta")
+    table.add_column("格式", style="cyan", no_wrap=True)
+    table.add_column("描述", style="white")
+    for name, desc in available_exporters():
+        table.add_row(name, desc)
+    console.print(table)
 
 
 def build_cli() -> click.Group:
