@@ -82,10 +82,25 @@ async def init_fts() -> None:
             logger.warning("FTS5 初始化失败 (可能未启用 fts5 模块): %s", e)
 
 
+def sanitize_fts_query(q: str) -> str:
+    """净化用户输入: 剥离 FTS5 元字符防注入 + 防特殊列前缀.
+
+    保留普通文字 / 空格 / 中英文 / 数字, 去掉 " * : ^ - + ( ) NEAR 等.
+    """
+    import re
+    # 移除 FTS5 特殊操作符
+    q = re.sub(r'[":*^()+\-]', " ", q)
+    # 多空格压缩为单空格
+    q = re.sub(r"\s+", " ", q).strip()
+    # 防止 'NEAR' 'AND' 'OR' 'NOT' 大写关键字被滥用
+    return q
+
+
 async def fts_search(q: str, *, limit: int = 50) -> list[dict]:
     """执行 FTS5 MATCH 查询, 返回 weibo_id 列表 + 排名分数."""
     engine = get_engine()
-    if not q.strip():
+    q = sanitize_fts_query(q or "")
+    if not q:
         return []
     async with engine.connect() as conn:
         try:

@@ -292,6 +292,13 @@ def serve(host: str | None, port: int | None, reload: bool) -> None:
 @cli.command()
 def tui() -> None:
     """启动 Textual TUI (上下键菜单 / 6 子屏)."""
+    import sys
+    if not sys.stdout.isatty():
+        console.print(
+            "[red]TUI 需要交互式终端 (TTY). 当前输出不是 TTY (可能是管道/重定向/CI).\n"
+            "请直接在终端运行 `wcn tui`, 不要 pipe 或重定向 stdout.[/red]"
+        )
+        return
     try:
         from cli.tui import WCNApp
     except ImportError as e:

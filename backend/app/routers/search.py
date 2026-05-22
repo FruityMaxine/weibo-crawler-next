@@ -34,7 +34,10 @@ class SearchResponse(BaseModel):
 @router.get("", response_model=SearchResponse)
 async def search(
     session: Annotated[AsyncSession, Depends(get_session)],
-    q: str = Query(..., min_length=1, max_length=100, description="FTS5 MATCH 查询表达式"),
+    q: str = Query(
+        ..., min_length=1, max_length=100,
+        description="搜索关键词 (内部会做 FTS5 操作符净化)",
+    ),
     limit: int = Query(50, ge=1, le=200),
 ) -> SearchResponse:
     raw_hits = await fts_search(q, limit=limit)

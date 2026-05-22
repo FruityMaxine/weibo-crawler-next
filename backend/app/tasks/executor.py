@@ -13,8 +13,11 @@ from backend.app.services import TaskService, UserService, WeiboService
 logger = logging.getLogger("wcn.tasks.executor")
 
 
-async def run_user_crawl(task_id: int) -> None:
-    """异步执行 CrawlTask: 抓用户 + 抓微博 + 更新进度."""
+async def run_user_crawl(task_id: int, cookie_override: str | None = None) -> None:
+    """异步执行 CrawlTask: 抓用户 + 抓微博 + 更新进度.
+
+    cookie_override 由 router 内存传入, 不从 config_snapshot 读 (避免持久化敏感字段).
+    """
     sm = get_sessionmaker()
     async with sm() as session:
         try:
@@ -26,7 +29,6 @@ async def run_user_crawl(task_id: int) -> None:
             cfg = task.config_snapshot or {}
             max_count: int = cfg.get("max_count", 50)
             only_original: bool = cfg.get("only_original", False)
-            cookie_override: str | None = cfg.get("cookie_override")
 
             await ts.start(task_id)
             await session.commit()

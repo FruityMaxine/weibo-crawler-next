@@ -47,8 +47,12 @@ class WebhookExporter(BaseExporter):
                 duration_ms=int((time.monotonic() - t0) * 1000),
             )
 
+        # 不把完整 URL (可能含 query string token) 回传, 仅露 host
+        from urllib.parse import urlparse
+        parsed = urlparse(s.webhook_url)
+        safe_endpoint = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
         return ExportResult(
             format="webhook", success=True, item_count=len(rows),
-            output_path=s.webhook_url,
+            output_path=safe_endpoint,
             duration_ms=int((time.monotonic() - t0) * 1000),
         )

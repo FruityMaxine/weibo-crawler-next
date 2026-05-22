@@ -25,6 +25,8 @@ TasksMax=200
 NoNewPrivileges=true
 ProtectSystem=full
 ProtectHome=true
+# 放行 data/ + weibo_output/ 让服务能写 SQLite 与导出
+ReadWritePaths=/opt/weibo-crawler-next/data /opt/weibo-crawler-next/weibo_output
 PrivateTmp=true
 PrivateDevices=true
 ProtectKernelTunables=true

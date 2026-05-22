@@ -2,6 +2,33 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/), 版本号遵循 SemVer 4 段制.
 
+## [0.4.2.0] - 2026-05-22
+
+> 公开 release 前置审查 — security/typescript/code 三个 ECC reviewer 联审后修复.
+
+### Fixed (3 新 Critical + 7 Warning)
+
+- **C1 — cookie_override 通过 API 泄露**: `tasks` router 改用 `_sanitize_config()` 过滤敏感字段, `cookie_override` 仅在内存传给 background task, 不入 `config_snapshot`. `TaskOut.from_orm_sanitized()` 兜底脱敏
+- **C2 — release.yml binary-build 缺前端 build**: 加 `setup-node@v4` + `npm ci && npm run build` 步骤, 否则 binary 内无 WebUI 静态资源
+- **C3 — README 状态过时**: 完整重写, 反映 v0.4.x 真实测试数 + uv 前置依赖 + Makefile 仅 Linux/macOS + Windows 用法
+
+### Added (用户特别提问的端口退避 + 安全增强)
+
+- **端口自动对齐**: `vite.config.ts` 读 `WCN_PORT` env, 后端换端口时前端 proxy 自动跟随. `WCN_DEV_PORT` 单独配 Vite dev. Vite `strictPort: false` 让 5173 占用时自动递增
+- **FTS5 输入净化**: `sanitize_fts_query()` 剥离 `" * : ^ - + ( )` 等 FTS5 元字符防注入
+- **TaskCreate 字段长度限制**: `name max=200` / `query max=200` / `max_count [1, 10000]`
+- **systemd ReadWritePaths**: 放行 `data/` 和 `weibo_output/`, 修复 `ProtectSystem=full` 下写文件失败
+- **wcn tui TTY 检测**: 非交互式终端立即报友好错误, 不抛 Textual traceback
+- **Webhook output_path 脱敏**: 不返回完整 URL (可能含 token), 只露 `scheme://host/path`
+- **PyInstaller binary 命名**: 三平台分别生成 `wcn-vX.X.X.X-{linux,macos,windows}-x64` 上传 Release
+
+### Changed
+
+- pytest **65 passed** 保持
+- frontend build 仍 441KB JS / 15KB CSS
+
+---
+
 ## [0.4.1.0] - 2026-05-22
 
 ### Fixed (5 Critical + 6 Warning 由 python-reviewer subagent 审出)
