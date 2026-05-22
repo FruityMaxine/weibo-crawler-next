@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSearch } from "@/api/hooks";
 import { SpotlightCard } from "@/components/reactbits/SpotlightCard";
 import { Search as SearchIcon } from "lucide-react";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 export default function Search() {
   const [q, setQ] = useState("");
@@ -57,9 +58,12 @@ export default function Search() {
                 {h.created_at ? new Date(h.created_at).toLocaleString() : ""}
               </span>
             </div>
+            {/* v0.7.0.0: sanitize 后端 snippet 防 XSS (只保留 <mark> 等白名单标签) */}
             <div
               className="text-ink text-sm leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: h.snippet || h.text }}
+              dangerouslySetInnerHTML={{
+                __html: sanitizeHtml(h.snippet || h.text),
+              }}
             />
           </SpotlightCard>
         ))}

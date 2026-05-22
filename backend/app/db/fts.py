@@ -83,16 +83,22 @@ async def init_fts() -> None:
 
 
 def sanitize_fts_query(q: str) -> str:
-    """净化用户输入: 剥离 FTS5 元字符防注入 + 防特殊列前缀.
+    """净化用户输入: 剥离 FTS5 元字符 + AND/OR/NOT/NEAR 关键字.
 
-    保留普通文字 / 空格 / 中英文 / 数字, 去掉 " * : ^ - + ( ) NEAR 等.
+    v0.7.0.0: 修 reviewer 报告 — 注释说"防 AND/OR/NOT/NEAR 关键字" 但实际没剥.
+    现真正剥离这些 FTS5 boolean 关键字, 防用户输入 "hello AND OR NOT" 类查询
+    引发 sqlite FTS5 语法错误(被外层 except 吞掉 → 静默失败).
+
+    保留: 普通文字 / 中文 / 数字 / 单空格.
+    剥离: " * : ^ - + ( ) 以及独立的 AND OR NOT NEAR 关键字.
     """
     import re
     # 移除 FTS5 特殊操作符
     q = re.sub(r'[":*^()+\-]', " ", q)
+    # 剥 boolean 关键字 (FTS5 内部识别大写, 不区分位置只看完整 word)
+    q = re.sub(r"\b(AND|OR|NOT|NEAR)\b", " ", q, flags=re.IGNORECASE)
     # 多空格压缩为单空格
     q = re.sub(r"\s+", " ", q).strip()
-    # 防止 'NEAR' 'AND' 'OR' 'NOT' 大写关键字被滥用
     return q
 
 

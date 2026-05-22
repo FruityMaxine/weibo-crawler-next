@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.app.config import get_settings
 from backend.app.db.base import init_db
 from backend.app.db.fts import init_fts
+from backend.app.middleware import SecurityHeadersMiddleware
 from backend.app.routers import health, search, tasks, users, weibo, ws
 from backend.app.tasks.scheduler import lifespan_scheduler
 
@@ -65,7 +66,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
         title="weibo-crawler-next",
-        version="0.6.0.0",
+        version="0.7.0.0",
         description="现代化微博数据采集与分析平台",
         lifespan=lifespan,
     )
@@ -80,6 +81,10 @@ def create_app() -> FastAPI:
     extra = os.getenv("WCN_CORS_ORIGINS", "").strip()
     if extra:
         cors_origins.extend([o.strip() for o in extra.split(",") if o.strip()])
+    # v0.7.0.0: 安全 headers (CSP / X-Frame-Options / Referrer-Policy 等)
+    # 注: middleware 后注册先执行, 把 SecurityHeaders 放 CORS 之前
+    # 才能让浏览器看到 CORS preflight 已包含安全 headers
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,

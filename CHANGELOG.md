@@ -2,6 +2,32 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/), 版本号遵循 SemVer 4 段制.
 
+## [0.7.0.0] - 2026-05-22
+
+> **组 2 Tick 3** · 全栈安全防御 + Exporter 资源生命周期重构.
+
+### Security
+
+- **修 Critical XSS**: `frontend/src/pages/Search.tsx` `dangerouslySetInnerHTML` 现走 `sanitizeHtml()`, 仅放行 `<mark>` 等白名单标签
+- **新增 SecurityHeadersMiddleware**: Content-Security-Policy / X-Frame-Options DENY / X-Content-Type-Options nosniff / Referrer-Policy / Permissions-Policy 全套, 支持 env 覆盖
+- **FTS5 sanitize 加强**: 真正剥离 `AND/OR/NOT/NEAR` 关键字 (之前注释说了但代码没做)
+
+### Refactored
+
+- **BaseExporter 资源生命周期**: 加 `_open()` / `_write_batch()` / `_close()` 三方法, `export()` 默认实现 try/finally 保证 close 必跑
+- **MySQLExporter / MongoDBExporter** 迁移到新接口, 修连接泄漏 (异常路径不 close)
+- MongoDB 改 `bulk_write` 替代 N 次 `replace_one` RTT
+
+### Added
+
+- `backend/app/middleware/security_headers.py` (~60 行)
+- `frontend/src/lib/sanitize.ts` (DOMPurify + fallback)
+- `tests/test_security_v07.py` (10 测: security headers + FTS sanitize + exporter lifecycle)
+
+### Tests: 102 passed (+10)
+
+---
+
 ## [0.6.0.0] - 2026-05-22
 
 > **组 2 Tick 2** · 3 reviewer 联审找 4 Critical + 14 Warning, 本 tick 修 2 Critical + 7 Warning.
