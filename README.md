@@ -3,7 +3,6 @@
 > 微博数据采集与分析平台. CLI + TUI + WebUI 三种交互, 内置 anti-ban 风控池,
 > 支持 5 种部署方式 (pip / Docker / Compose / systemd / PyInstaller binary).
 
-[![CI](https://github.com/FruityMaxine/weibo-crawler-next/actions/workflows/ci.yml/badge.svg)](https://github.com/FruityMaxine/weibo-crawler-next/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/FruityMaxine/weibo-crawler-next?include_prereleases)](https://github.com/FruityMaxine/weibo-crawler-next/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org)
@@ -12,11 +11,11 @@
 
 ## 关于本项目
 
-本项目基于 [dataabc/weibo-crawler](https://github.com/dataabc/weibo-crawler) 的功能边界, 完全重写并扩展, 不复用原项目任何源代码.
+本项目以 [dataabc/weibo-crawler](https://github.com/dataabc/weibo-crawler) 为参考, 重新设计为现代化 Python 项目: FastAPI + SQLAlchemy 2.0 async + Vite/React + Textual TUI.
 
-**与原项目的关系**: 仅吸收 `m.weibo.cn` 公开接口的 URL 规则 / cookie 获取流程 / 26 项配置字段语义, 在此基础上重新设计为现代化 Python 项目.
+参考点: `m.weibo.cn` 公开接口的 URL 规则 / cookie 获取流程 / 配置字段语义.
 
-**致谢**: 感谢 `dataabc` 长期维护原项目, 让后来者得以理解微博 API 的边界与限制. 本项目以新架构延续其工作.
+**致谢**: 感谢 `dataabc` 长期维护原项目, 让后来者理解微博 API 的边界与限制.
 
 ---
 
