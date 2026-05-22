@@ -1,0 +1,77 @@
+# weibo-crawler-next docker-compose
+# 一键启动:
+#   1. cp env.example .env 并按需填字段
+#   2. 在 .env 中必须设置 WCN_HOST 为容器内监听网卡 (容器隔离, 不会泄露到公网)
+#   3. docker compose up -d
+#
+# 包含:
+#   - wcn-api:    FastAPI 后端 + 内嵌静态前端 (端口 28800)
+#
+# 可选 profiles:
+#   --profile postgres  → 加 postgres 服务
+#   --profile redis     → 加 redis 服务
+
+services:
+  wcn-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: weibo-crawler-next:latest
+    container_name: wcn-api
+    restart: unless-stopped
+    ports:
+      # 宿主端口仅暴露到本机 loopback, Caddy/Nginx 反代到公网
+      - "127.0.0.1:28800:28800"
+    environment:
+      # WCN_HOST 必须由用户在 .env 中显式设置 (容器内 bind 网卡)
+      # 详见 docs/DEPLOYMENT.md "Docker 部署" 段
+      WCN_HOST: ${WCN_HOST:?需在 .env 中设置 WCN_HOST 容器内监听网卡}
+      WCN_ENV: ${WCN_ENV:-prod}
+      WCN_PORT: 28800
+      WCN_DATABASE_URL: ${WCN_DATABASE_URL:-sqlite+aiosqlite:///./data/wcn.db}
+      WCN_WEIBO_COOKIE: ${WCN_WEIBO_COOKIE:-}
+      WCN_CRAWLER_RATE_LIMIT: ${WCN_CRAWLER_RATE_LIMIT:-1.0}
+      WCN_LOG_LEVEL: ${WCN_LOG_LEVEL:-INFO}
+      WCN_TELEGRAM_BOT_TOKEN: ${WCN_TELEGRAM_BOT_TOKEN:-}
+      WCN_TELEGRAM_CHAT_ID: ${WCN_TELEGRAM_CHAT_ID:-}
+      WCN_DISCORD_WEBHOOK_URL: ${WCN_DISCORD_WEBHOOK_URL:-}
+    volumes:
+      - ./data:/app/data
+      - ./weibo_output:/app/weibo_output
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:28800/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # 可选: Postgres 后端
+  postgres:
+    image: postgres:17-alpine
+    container_name: wcn-postgres
+    profiles: ["postgres"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: wcn
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?需设置 POSTGRES_PASSWORD}
+      POSTGRES_DB: weibo
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5436:5432"
+
+  # 可选: Redis (任务队列 + WS pubsub)
+  redis:
+    image: redis:7-alpine
+    container_name: wcn-redis
+    profiles: ["redis"]
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    ports:
+      - "127.0.0.1:6390:6379"
+
+volumes:
+  postgres-data:
+  redis-data:

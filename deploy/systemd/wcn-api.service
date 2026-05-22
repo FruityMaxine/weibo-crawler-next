@@ -1,0 +1,46 @@
+[Unit]
+Description=weibo-crawler-next API server
+Documentation=https://github.com/FruityMaxine/weibo-crawler-next
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wcn
+Group=wcn
+WorkingDirectory=/opt/weibo-crawler-next
+
+# 用项目 venv 启动 wcn serve
+ExecStart=/opt/weibo-crawler-next/.venv/bin/wcn serve
+
+# 读 .env 文件 (放敏感凭据)
+EnvironmentFile=-/etc/wcn/wcn.env
+
+# 资源限制 (按服务器规模调整)
+# 注: systemd unit 文件绝不允许行尾注释, 否则该行会被静默忽略
+MemoryMax=1500M
+TasksMax=200
+
+# 安全沙箱
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+
+Restart=on-failure
+RestartSec=10
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# 日志走 journal
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wcn-api
+
+[Install]
+WantedBy=multi-user.target

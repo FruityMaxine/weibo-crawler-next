@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 使用问题 / 部署疑问
+    url: https://github.com/FruityMaxine/weibo-crawler-next/discussions
+    about: 先来 Discussions 提问, 别人也许遇到过.
