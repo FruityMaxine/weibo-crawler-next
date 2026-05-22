@@ -200,4 +200,28 @@ Select {
 Select:focus {
     border: solid #5e6ad2;
 }
+
+#config-form {
+    height: 1fr;
+    min-height: 10;
+    padding: 0 1;
+}
+
+#config-actions {
+    height: auto;
+    padding: 1 0;
+}
+
+#config-status {
+    height: auto;
+    margin-bottom: 1;
+}
+
+#crawl-form, #crawl-output {
+    height: 1fr;
+}
+
+#crawl-progress {
+    margin: 1 0;
+}
 """

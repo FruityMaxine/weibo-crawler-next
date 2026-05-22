@@ -24,7 +24,7 @@ export function Sidebar() {
         </div>
         <div className="flex flex-col leading-tight">
           <span className="text-ink text-sm font-semibold">weibo-crawler-next</span>
-          <span className="text-ink-subtle text-[10px] font-mono">v0.5.0.0</span>
+          <span className="text-ink-subtle text-[10px] font-mono">v0.5.1.0</span>
         </div>
       </div>
       <nav className="flex flex-col gap-0.5 flex-1">

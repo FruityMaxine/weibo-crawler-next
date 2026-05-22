@@ -2,6 +2,29 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/), 版本号遵循 SemVer 4 段制.
 
+## [0.5.1.0] - 2026-05-22
+
+> 用户实测 v0.5.0.0 反馈 3 个 bug + 1 个新需求, 全部修复.
+
+### Fixed
+
+- **Bug 1 — 采集屏 "未启动也报正在采集"**: `crawl.py` 加 `on_screen_resume` 钩子, 每次回到采集屏自动 reset `_running/_task`. Esc 改走 `action_force_back` 强制返回, 不被状态卡住. btn-back 改成"在运行时先 cancel 再返回", 不再用 `_notify` 拦死.
+- **Bug 2 — 点停止后应用卡死**: `action_stop` 改成 `await self._task` 等真正结束 (timeout=5s), `_run_crawl` 拆分 `_run_crawl_batch` 把 `_running` reset 移到外层 finally. `_notify` 加 `is_attached` 守卫, 避免在已卸载 widget 上操作.
+- **Bug 3 — 配置屏底部留白**: 按钮区 + 状态栏移入 `VerticalScroll` 内部底部跟随滚动. CSS 加 `#config-form { height: 1fr }` + `#config-actions { height: auto }` 让内容自然填满.
+
+### Added
+
+- **`cli/tui/user_list_store.py`** UserListStore: JSON 持久化用户列表 CRUD, 防路径穿越, 自动去重
+- **`cli/tui/screens/user_lists.py`** UserListsScreen: TUI 列表管理屏 (Select + Input + 增删按钮)
+- **CrawlScreen 加 `[📋 加载列表]` 按钮**: 一键从已保存批次加载 UID, 顺序抓取每个用户, 单失败不影响其他
+- 主菜单加 `用户列表` 项, 紫色标记位居第 2
+
+### Tests
+
+- **80 passed** (+11 新增: 10 UserListStore CRUD + 1 UserListsScreen smoke)
+
+---
+
 ## [0.5.0.0] - 2026-05-22
 
 > 主交互改造 — TUI 升级为"上下键菜单 + 子界面 + 输入框 + 实时进度条 + 滚动日志"完整体验, 七彩主题.

@@ -13,16 +13,17 @@ from cli.tui.widgets.menu_list import MenuList
 
 # (key, label, color_class) — color_class 仅用于装饰高亮, 不破坏 OptionList 选项
 MENU_ITEMS = [
-    ("crawl",   "[#27a644]●[/] [bold]开始采集[/]                  [#8a8f98](核心功能)[/]"),
-    ("tasks",   "[#5e6ad2]●[/] [bold]任务列表[/]                  [#8a8f98](后台进度)[/]"),
-    ("users",   "[#4ec3ff]●[/] [bold]已抓用户[/]                  [#8a8f98](浏览)[/]"),
-    ("weibo",   "[#ff7eb6]●[/] [bold]已抓微博[/]                  [#8a8f98](浏览)[/]"),
-    ("search",  "[#b88aff]●[/] [bold]全文搜索[/]                  [#8a8f98](FTS5)[/]"),
-    ("export",  "[#ffaa3e]●[/] [bold]导出数据[/]                  [#8a8f98](6 格式)[/]"),
-    ("config",  "[#d9a300]●[/] [bold]配置[/]                      [#8a8f98](可编辑)[/]"),
-    ("logs",    "[#8a8f98]●[/] [bold]日志[/]"),
-    ("help",    "[#5e6ad2]?[/] [bold]帮助[/]"),
-    ("quit",    "[#d65555]✕[/] [bold]退出[/]"),
+    ("crawl",      "[#27a644]●[/] [bold]开始采集[/]              [#8a8f98](核心功能)[/]"),
+    ("user_lists", "[#b88aff]●[/] [bold]用户列表[/]              [#8a8f98](批次管理)[/]"),
+    ("tasks",      "[#5e6ad2]●[/] [bold]任务列表[/]              [#8a8f98](后台进度)[/]"),
+    ("users",      "[#4ec3ff]●[/] [bold]已抓用户[/]              [#8a8f98](浏览)[/]"),
+    ("weibo",      "[#ff7eb6]●[/] [bold]已抓微博[/]              [#8a8f98](浏览)[/]"),
+    ("search",     "[#b88aff]●[/] [bold]全文搜索[/]              [#8a8f98](FTS5)[/]"),
+    ("export",     "[#ffaa3e]●[/] [bold]导出数据[/]              [#8a8f98](6 格式)[/]"),
+    ("config",     "[#d9a300]●[/] [bold]配置[/]                  [#8a8f98](可编辑)[/]"),
+    ("logs",       "[#8a8f98]●[/] [bold]日志[/]"),
+    ("help",       "[#5e6ad2]?[/] [bold]帮助[/]"),
+    ("quit",       "[#d65555]✕[/] [bold]退出[/]"),
 ]
 
 
@@ -74,8 +75,8 @@ class MainScreen(Screen):
         if target == "quit":
             self.app.exit()
             return
-        if target in {"crawl", "tasks", "users", "weibo", "search", "export",
-                      "config", "logs", "help"}:
+        if target in {"crawl", "user_lists", "tasks", "users", "weibo",
+                      "search", "export", "config", "logs", "help"}:
             self.app.push_screen(target)
 
     def action_quit_app(self) -> None:

@@ -13,6 +13,7 @@ from cli.tui.screens.logs import LogsScreen
 from cli.tui.screens.main import MainScreen
 from cli.tui.screens.search import SearchScreen
 from cli.tui.screens.tasks import TasksScreen
+from cli.tui.screens.user_lists import UserListsScreen
 from cli.tui.screens.users import UsersScreen
 from cli.tui.screens.weibo_view import WeiboScreen
 from cli.tui.theme import TUI_CSS
@@ -26,15 +27,16 @@ class WCNApp(App):
     SUB_TITLE = "微博数据采集 · 交互式菜单"
 
     SCREENS = {
-        "crawl":  CrawlScreen,
-        "tasks":  TasksScreen,
-        "users":  UsersScreen,
-        "weibo":  WeiboScreen,
-        "search": SearchScreen,
-        "export": ExportScreen,
-        "config": ConfigScreen,
-        "logs":   LogsScreen,
-        "help":   HelpScreen,
+        "crawl":       CrawlScreen,
+        "user_lists":  UserListsScreen,
+        "tasks":       TasksScreen,
+        "users":       UsersScreen,
+        "weibo":       WeiboScreen,
+        "search":      SearchScreen,
+        "export":      ExportScreen,
+        "config":      ConfigScreen,
+        "logs":        LogsScreen,
+        "help":        HelpScreen,
     }
 
     BINDINGS = [

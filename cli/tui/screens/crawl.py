@@ -1,7 +1,11 @@
-"""抓取屏 — 输入 UID + 数量, 启动后实时进度条 + 滚动日志.
+"""抓取屏 — 输入 UID 或选用户列表, 启动后实时进度条 + 滚动日志.
 
-这是 TUI 的"核心交互界面": 用户上下键到主菜单"开始采集" 进来, 在这里
-完成全部抓取动作, 无需记任何命令.
+v0.5.1.0 修复:
+  - 状态机鲁棒化: on_screen_resume 每次重置 _running/_task
+  - action_stop 真 await task 结束, 不再卡死
+  - _notify 加 is_attached 守卫, 避免在已卸载 widget 上操作
+  - Esc 强制返回, 不卡 _running 检查
+  - 新增 [📋 加载列表] 按钮, 选用户列表批量顺序抓取
 """
 
 from __future__ import annotations
@@ -20,6 +24,7 @@ from textual.widgets import (
 from backend.app.crawler import AsyncWeiboClient
 from backend.app.db.base import get_sessionmaker, init_db
 from backend.app.services import UserService, WeiboService
+from cli.tui.user_list_store import UserListStore
 
 logger = logging.getLogger("wcn.tui.crawl")
 
@@ -28,7 +33,7 @@ class CrawlScreen(Screen):
     """采集屏 — 输入 UID + 数量 → 启动 → 实时进度 + 日志."""
 
     BINDINGS = [
-        ("escape", "app.pop_screen", "返回"),
+        ("escape", "force_back", "返回"),
         ("q", "app.exit", "退出"),
         ("ctrl+s", "submit", "开始"),
         ("ctrl+x", "stop", "停止"),
@@ -38,6 +43,8 @@ class CrawlScreen(Screen):
         super().__init__()
         self._task: asyncio.Task | None = None
         self._running = False
+        self._batch_uids: list[int] = []
+        self._batch_name: str = ""
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -57,7 +64,8 @@ class CrawlScreen(Screen):
                 yield Input(placeholder="可粘贴新 cookie 临时覆盖", id="input-cookie", password=True)
 
                 with Horizontal():
-                    yield Button("▶ 开始采集", id="btn-start", variant="primary", classes="-primary")
+                    yield Button("▶ 开始", id="btn-start", variant="primary", classes="-primary")
+                    yield Button("📋 加载列表", id="btn-load-list")
                     yield Button("■ 停止", id="btn-stop", variant="error", classes="-danger")
                     yield Button("← 返回", id="btn-back")
 
@@ -76,14 +84,35 @@ class CrawlScreen(Screen):
     def on_mount(self) -> None:
         log = self.query_one("#crawl-log", RichLog)
         log.write("[#8a8f98]等待输入...[/]")
-        log.write("[#8a8f98]提示: 1) 输入 UID  2) (可选) 数量/日期/Cookie  3) Ctrl+S 或点 [开始采集][/]")
+        log.write("[#8a8f98]提示: 输入 UID 或点 [📋 加载列表] 选已保存的批次, Ctrl+S 开始[/]")
+
+    def on_screen_resume(self) -> None:
+        """每次屏幕重新显示时安全重置 — Textual 复用 Screen instance."""
+        if not self._running:
+            self._task = None
+            self._notify("", level="info")
+
+    def action_force_back(self) -> None:
+        """Esc 强制返回, 不被 _running 状态卡住."""
+        if self._running and self._task is not None:
+            self._task.cancel()
+        self._running = False
+        self._task = None
+        self.app.pop_screen()
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         bid = event.button.id
         if bid == "btn-back":
-            if self._running:
-                self._notify("正在抓取中, 请先按 [停止] 或 Ctrl+X.", level="warning")
-                return
+            # 防御性: 如果在运行就 cancel 再返回, 不阻塞用户
+            if self._running and self._task is not None:
+                self._notify("正在中断当前任务...", level="warning")
+                self._task.cancel()
+                try:
+                    await asyncio.wait_for(self._task, timeout=3.0)
+                except (asyncio.CancelledError, asyncio.TimeoutError, Exception):
+                    pass
+                self._running = False
+                self._task = None
             self.app.pop_screen()
             return
         if bid == "btn-stop":
@@ -91,6 +120,9 @@ class CrawlScreen(Screen):
             return
         if bid == "btn-start":
             await self.action_submit()
+            return
+        if bid == "btn-load-list":
+            await self._load_list_dialog()
 
     async def action_submit(self) -> None:
         if self._running:
@@ -101,10 +133,6 @@ class CrawlScreen(Screen):
         max_text = self.query_one("#input-max", Input).value.strip()
         since_text = self.query_one("#input-since", Input).value.strip()
         cookie_text = self.query_one("#input-cookie", Input).value.strip() or None
-
-        if not uid_text.isdigit():
-            self._notify("UID 必须是纯数字", level="danger")
-            return
 
         try:
             max_count = int(max_text) if max_text else 20
@@ -123,75 +151,144 @@ class CrawlScreen(Screen):
                 self._notify(f"起始日期格式错: {e}", level="danger")
                 return
 
-        uid = int(uid_text)
-        self._running = True
-        self._task = asyncio.create_task(self._run_crawl(uid, max_count, since_date, cookie_text))
-
-    async def action_stop(self) -> None:
-        if not self._running or self._task is None:
+        # 优先用单 UID, 没填则用批次列表
+        uids: list[int] = []
+        if uid_text:
+            if not uid_text.isdigit():
+                self._notify("UID 必须是纯数字", level="danger")
+                return
+            uids = [int(uid_text)]
+        elif self._batch_uids:
+            uids = list(self._batch_uids)
+        else:
+            self._notify("请输入 UID 或点 [📋 加载列表] 选已保存批次.", level="danger")
             return
-        self._task.cancel()
-        self._notify("已请求停止 (等当前请求完成后退出).", level="warning")
 
-    async def _run_crawl(
-        self, uid: int, max_count: int, since_date, cookie_override: str | None
+        self._running = True
+        self._task = asyncio.create_task(
+            self._run_crawl_batch(uids, max_count, since_date, cookie_text)
+        )
+
+    async def _run_crawl_batch(
+        self, uids: list[int], max_count: int, since_date, cookie_override: str | None
     ) -> None:
+        """顺序抓取多个 UID, 单个失败不影响其他."""
         log = self.query_one("#crawl-log", RichLog)
-        bar = self.query_one("#crawl-progress", ProgressBar)
-        bar.update(total=max_count, progress=0)
-        self._notify("初始化数据库与 HTTP client...", level="info")
-        log.write(f"[#5e6ad2]► 准备抓取 uid={uid} max={max_count} since={since_date}[/]")
-
+        total_users = len(uids)
+        log.write(
+            f"[bold #5e6ad2]► 开始批次抓取 {total_users} 用户 "
+            f"(每个 max={max_count})[/]"
+        )
         try:
-            await init_db()
-            sm = get_sessionmaker()
-            async with sm() as session:
-                us = UserService(session)
-                ws = WeiboService(session)
-                async with AsyncWeiboClient(cookie=cookie_override) as client:
-                    log.write(f"[#4ec3ff]→ 拉取用户 {uid} 资料...[/]")
-                    user = await us.fetch_and_upsert(uid, client=client)
-                    await session.commit()
-                    log.write(
-                        f"[#27a644]✓ 用户:[/] [bold]{user.screen_name}[/] "
-                        f"(微博 {user.statuses_count} / 粉丝 {user.followers_count})"
-                    )
-                    self._notify(
-                        f"已锁定 [bold]{user.screen_name}[/], 开始翻页抓取...",
-                        level="success",
-                    )
-
-                    count = 0
-                    async for w in ws.crawl_user(
-                        uid, client=client, max_count=max_count, since=since_date,
-                    ):
-                        count += 1
-                        bar.update(progress=count)
-                        ts = datetime.now().strftime("%H:%M:%S")
-                        tag = "[#b88aff]🔁[/]" if w.is_retweet else "[#27a644]📝[/]"
-                        preview = (w.text or "")[:60].replace("\n", " ")
-                        log.write(
-                            f"[#8a8f98]{ts}[/]  {tag}  "
-                            f"[#5e6ad2]{w.weibo_id}[/]  {preview}"
-                        )
-                        if count % 10 == 0:
-                            await session.commit()
-                    await session.commit()
-                    log.write(f"[bold #27a644]✓ 完成 — 共抓取 {count} 条[/]")
-                    self._notify(f"全部完成 ✓ 共 {count} 条已落库", level="success")
-                    bar.update(progress=max_count)
+            for idx, uid in enumerate(uids, 1):
+                log.write(f"\n[bold #4ec3ff]── [{idx}/{total_users}] uid={uid} ──[/]")
+                self._notify(
+                    f"批次进度 [{idx}/{total_users}]  当前 uid={uid}",
+                    level="info",
+                )
+                try:
+                    await self._run_crawl(uid, max_count, since_date, cookie_override)
+                except asyncio.CancelledError:
+                    log.write("[bold #d9a300]⚠ 批次中断[/]")
+                    raise
+                except Exception as e:
+                    log.write(f"[#d65555]✗ uid={uid} 失败: {e}, 跳过下一个[/]")
+            log.write(f"\n[bold #27a644]✓ 批次完成 — {total_users} 用户全部尝试[/]")
+            self._notify(f"批次完成 ✓ {total_users} 用户", level="success")
         except asyncio.CancelledError:
-            log.write("[bold #d9a300]⚠ 用户中断[/]")
-            self._notify("已中断", level="warning")
-        except Exception as e:
-            log.write(f"[bold #d65555]✗ 失败: {type(e).__name__}: {e}[/]")
-            self._notify(f"失败: {e}", level="danger")
+            pass
         finally:
             self._running = False
             self._task = None
 
+    async def action_stop(self) -> None:
+        if not self._running or self._task is None:
+            self._notify("没有正在进行的抓取任务.", level="info")
+            return
+        self._task.cancel()
+        try:
+            # 等 task 真正结束 (含 finally 跑完), 上限 5 秒避免死等
+            await asyncio.wait_for(self._task, timeout=5.0)
+        except (asyncio.CancelledError, asyncio.TimeoutError, Exception):
+            pass
+        # finally 块已 reset _running/_task, 再保险一次
+        self._running = False
+        self._task = None
+        self._notify("已停止.", level="warning")
+
+    async def _load_list_dialog(self) -> None:
+        """从用户列表加载 UIDs - 简化版: 列出所有已保存列表, 选第一个加载到日志."""
+        log = self.query_one("#crawl-log", RichLog)
+        store = UserListStore()
+        lists = store.list_all()
+        if not lists:
+            log.write("[#d9a300]⚠ 还没有保存的用户列表. 回主菜单选 [用户列表] 创建.[/]")
+            self._notify("无已保存列表, 请先在 [用户列表] 屏创建.", level="warning")
+            return
+
+        # 选第一个列表加载 (用户后续可在 UserListsScreen 选择)
+        first_name = lists[0]
+        uids = store.load(first_name)
+        log.write(f"[bold #5e6ad2]► 加载列表 '{first_name}' — 共 {len(uids)} 个 UID:[/]")
+        for u in uids:
+            log.write(f"  • {u}")
+        self._notify(
+            f"已加载列表 [bold]{first_name}[/] ({len(uids)} 个 UID). "
+            f"点 [开始] 顺序抓取每个 UID.",
+            level="info",
+        )
+        self._batch_uids = uids
+        self._batch_name = first_name
+
+    async def _run_crawl(
+        self, uid: int, max_count: int, since_date, cookie_override: str | None
+    ) -> None:
+        """抓单个用户. 由 action_submit (单 UID) 或 _run_crawl_batch (批次) 调用."""
+        log = self.query_one("#crawl-log", RichLog)
+        bar = self.query_one("#crawl-progress", ProgressBar)
+        bar.update(total=max_count, progress=0)
+        log.write(f"[#5e6ad2]► uid={uid} max={max_count} since={since_date}[/]")
+
+        await init_db()
+        sm = get_sessionmaker()
+        async with sm() as session:
+            us = UserService(session)
+            ws = WeiboService(session)
+            async with AsyncWeiboClient(cookie=cookie_override) as client:
+                log.write(f"[#4ec3ff]→ 拉取用户 {uid} 资料...[/]")
+                user = await us.fetch_and_upsert(uid, client=client)
+                await session.commit()
+                log.write(
+                    f"[#27a644]✓ 用户:[/] [bold]{user.screen_name}[/] "
+                    f"(微博 {user.statuses_count} / 粉丝 {user.followers_count})"
+                )
+
+                count = 0
+                async for w in ws.crawl_user(
+                    uid, client=client, max_count=max_count, since=since_date,
+                ):
+                    count += 1
+                    bar.update(progress=count)
+                    ts = datetime.now().strftime("%H:%M:%S")
+                    tag = "[#b88aff]🔁[/]" if w.is_retweet else "[#27a644]📝[/]"
+                    preview = (w.text or "")[:60].replace("\n", " ")
+                    log.write(
+                        f"[#8a8f98]{ts}[/]  {tag}  "
+                        f"[#5e6ad2]{w.weibo_id}[/]  {preview}"
+                    )
+                    if count % 10 == 0:
+                        await session.commit()
+                await session.commit()
+                log.write(f"[bold #27a644]✓ uid={uid} 完成 — {count} 条[/]")
+
     def _notify(self, msg: str, *, level: str = "info") -> None:
-        status = self.query_one("#crawl-status", Static)
+        # 防御: 屏幕已卸载时不操作
+        if not self.is_attached:
+            return
+        try:
+            status = self.query_one("#crawl-status", Static)
+        except Exception:
+            return
         cls = {
             "info": "info",
             "success": "success",
