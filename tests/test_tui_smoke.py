@@ -70,3 +70,53 @@ async def test_navigate_to_help_screen():
         await pilot.app.push_screen("help")
         await pilot.pause()
         assert "HelpScreen" in type(pilot.app.screen).__name__
+
+
+# v0.5.0.0: 新增 4 个屏 smoke test
+@pytest.mark.asyncio
+async def test_navigate_to_crawl_screen():
+    from cli.tui import WCNApp
+    app = WCNApp()
+    async with app.run_test(size=(140, 50)) as pilot:
+        await pilot.pause()
+        await pilot.app.push_screen("crawl")
+        await pilot.pause()
+        assert "CrawlScreen" in type(pilot.app.screen).__name__
+        # 验证输入框 + 进度条 + 日志都挂载
+        assert pilot.app.screen.query("#input-uid")
+        assert pilot.app.screen.query("#crawl-progress")
+        assert pilot.app.screen.query("#crawl-log")
+
+
+@pytest.mark.asyncio
+async def test_navigate_to_users_screen():
+    from cli.tui import WCNApp
+    app = WCNApp()
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.app.push_screen("users")
+        await pilot.pause()
+        assert "UsersScreen" in type(pilot.app.screen).__name__
+
+
+@pytest.mark.asyncio
+async def test_navigate_to_weibo_screen():
+    from cli.tui import WCNApp
+    app = WCNApp()
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.app.push_screen("weibo")
+        await pilot.pause()
+        assert "WeiboScreen" in type(pilot.app.screen).__name__
+
+
+@pytest.mark.asyncio
+async def test_navigate_to_search_screen():
+    from cli.tui import WCNApp
+    app = WCNApp()
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.app.push_screen("search")
+        await pilot.pause()
+        assert "SearchScreen" in type(pilot.app.screen).__name__
+        assert pilot.app.screen.query("#search-input")

@@ -2,6 +2,30 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/), 版本号遵循 SemVer 4 段制.
 
+## [0.5.0.0] - 2026-05-22
+
+> 主交互改造 — TUI 升级为"上下键菜单 + 子界面 + 输入框 + 实时进度条 + 滚动日志"完整体验, 七彩主题.
+
+### Added (核心 TUI 体验)
+
+- **默认入口**: `wcn` 无参数自动启 TUI 菜单 (TTY 环境), 不用记任何命令
+- **CrawlScreen 新增** (核心采集屏): 输入 UID + 数量 + 起始日期 + Cookie, 启动后**右侧实时进度条** + **滚动日志**, 中途可 Ctrl+X 停止
+- **UsersScreen 新增**: 已抓用户卡片列表 (头像/认证/统计)
+- **WeiboScreen 新增**: 已抓微博列表 + UID 过滤
+- **SearchScreen 新增**: 全文搜索 + FTS5 元字符自动净化 + `<mark>` 高亮渲染
+- **ConfigScreen 改成可编辑**: 9 分组配置全字段 Input, 敏感字段脱敏, Ctrl+S 写 .env
+- **七彩主题**: 在 Linear 暗色基底上加 7 色状态 (success 绿 / warning 黄 / danger 红 / info 青 / accent 粉/紫/橙), TUI CSS 全套支持
+
+### Changed
+
+- 主菜单重排: `开始采集` 置顶 (核心), 其余按使用频率排
+- 主菜单每项带颜色标记 + 中文功能描述
+- `cli/__main__.py`: 无参数 + TTY 时自动启 TUI; 非 TTY 走原 click 命令
+- TUI sidebar 宽度 28 → 32 (容纳更长中文菜单)
+- 测试: 69 passed (+4 新屏 smoke)
+
+---
+
 ## [0.4.2.0] - 2026-05-22
 
 > 公开 release 前置审查 — security/typescript/code 三个 ECC reviewer 联审后修复.

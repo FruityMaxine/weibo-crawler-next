@@ -1,7 +1,10 @@
 """CLI 主入口 — `wcn` / `python -m cli`.
 
-Tick 2 简版: argparse / click 风格命令组.
-Tick 3 升级: 加入 `wcn tui` 子命令 (Textual 框架, 上下键菜单).
+v0.5.0.0 起:
+  - `wcn`            (无参数)  →  自动启 Textual TUI 菜单界面 (TTY 环境)
+                                 非 TTY 环境 → 显示 --help
+  - `wcn tui`         显式启 TUI
+  - `wcn run/serve/export/...`  专业 CLI 命令 (保留)
 """
 
 from __future__ import annotations
@@ -11,7 +14,25 @@ import sys
 from cli.commands import build_cli
 
 
+def _is_no_args() -> bool:
+    return len(sys.argv) == 1
+
+
 def main() -> int:
+    # 无参数 + TTY → 默认启 TUI 菜单 (Textual)
+    if _is_no_args() and sys.stdout.isatty() and sys.stdin.isatty():
+        try:
+            from cli.tui import WCNApp
+        except ImportError:
+            # 没装 [tui] extras → 走默认 --help
+            pass
+        else:
+            try:
+                WCNApp().run()
+                return 0
+            except KeyboardInterrupt:
+                return 130
+
     cli = build_cli()
     try:
         cli(standalone_mode=False)

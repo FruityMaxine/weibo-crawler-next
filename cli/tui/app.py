@@ -1,4 +1,4 @@
-"""Textual TUI 主入口 — `wcn tui` 调用 WCNApp().run()."""
+"""Textual TUI 主入口 — `wcn` 无参数 / `wcn tui` 启动."""
 
 from __future__ import annotations
 
@@ -6,11 +6,15 @@ from textual.app import App
 
 from backend.app.db.base import init_db
 from cli.tui.screens.config import ConfigScreen
+from cli.tui.screens.crawl import CrawlScreen
 from cli.tui.screens.export import ExportScreen
 from cli.tui.screens.help import HelpScreen
 from cli.tui.screens.logs import LogsScreen
 from cli.tui.screens.main import MainScreen
+from cli.tui.screens.search import SearchScreen
 from cli.tui.screens.tasks import TasksScreen
+from cli.tui.screens.users import UsersScreen
+from cli.tui.screens.weibo_view import WeiboScreen
 from cli.tui.theme import TUI_CSS
 
 
@@ -19,14 +23,18 @@ class WCNApp(App):
 
     CSS = TUI_CSS
     TITLE = "weibo-crawler-next"
-    SUB_TITLE = "现代化微博数据采集 — TUI"
+    SUB_TITLE = "微博数据采集 · 交互式菜单"
 
     SCREENS = {
-        "tasks": TasksScreen,
-        "config": ConfigScreen,
-        "logs": LogsScreen,
+        "crawl":  CrawlScreen,
+        "tasks":  TasksScreen,
+        "users":  UsersScreen,
+        "weibo":  WeiboScreen,
+        "search": SearchScreen,
         "export": ExportScreen,
-        "help": HelpScreen,
+        "config": ConfigScreen,
+        "logs":   LogsScreen,
+        "help":   HelpScreen,
     }
 
     BINDINGS = [
