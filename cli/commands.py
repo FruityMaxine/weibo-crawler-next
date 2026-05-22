@@ -69,20 +69,113 @@ def info() -> None:
     console.print(table)
 
 
+def _parse_since(since: str | None) -> date_type | None:
+    """支持原项目 3 种 since_date 格式:
+       - "yyyy-mm-dd" 绝对日期
+       - "N" 整数: 抓取最近 N 天
+       - None: 不限
+    """
+    if not since:
+        return None
+    s = since.strip()
+    if s.isdigit():
+        from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+        days = int(s)
+        return (_dt.now(_tz.utc) - _td(days=days)).date()
+    try:
+        return date_type.fromisoformat(s)
+    except ValueError:
+        raise click.BadParameter(
+            f"--since 必须是 'yyyy-mm-dd' 或正整数 (最近 N 天), 实际: {since!r}"
+        )
+
+
 @cli.command()
-@click.option("-u", "--user", "uid", type=int, required=True, help="微博用户 ID")
-@click.option("-n", "--max", "max_count", type=int, default=20, help="最多抓取微博条数")
+@click.option("-u", "--user", "uid", type=int, default=None, help="单个微博用户 ID")
+@click.option(
+    "-f", "--user-file", "user_file",
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    default=None,
+    help="批量模式: 从文本文件读 uid (每行一个 uid, # 注释跳过, 兼容原项目 user_id_list.txt)",
+)
+@click.option("-n", "--max", "max_count", type=int, default=20, help="每个用户最多抓取微博条数")
 @click.option("--only-original", is_flag=True, help="仅原创 (跳过转发)")
 @click.option(
-    "--since", "since", type=str, default=None, help="只抓此日期之后 (yyyy-mm-dd)"
+    "--since", "since", type=str, default=None,
+    help="只抓此日期之后. 支持 'yyyy-mm-dd' 或整数 N (最近 N 天)",
 )
 @click.option("--cookie", "cookie", default=None, help="覆盖 .env 中的 cookie")
 def run(
-    uid: int, max_count: int, only_original: bool, since: str | None, cookie: str | None
+    uid: int | None, user_file: str | None,
+    max_count: int, only_original: bool,
+    since: str | None, cookie: str | None,
 ) -> None:
-    """前台抓取单个用户的微博 → 落本地 SQLite."""
-    since_date = date_type.fromisoformat(since) if since else None
-    asyncio.run(_run_user(uid, max_count, only_original, since_date, cookie))
+    """前台抓取微博 → 落本地 SQLite. 支持单 uid 或批量文件."""
+    if not uid and not user_file:
+        raise click.BadParameter("必须指定 -u <uid> 或 -f <user-id-file>")
+    since_date = _parse_since(since)
+
+    uids: list[int] = []
+    if uid is not None:
+        uids.append(uid)
+    if user_file:
+        from pathlib import Path as _P
+        for line in _P(user_file).read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            # 原项目格式: "uid [nickname] [since N] [topic]" — 仅取第 1 字段
+            parts = line.split()
+            try:
+                uids.append(int(parts[0]))
+            except (ValueError, IndexError):
+                console.print(f"[yellow]跳过无效行: {line!r}[/yellow]")
+
+    if not uids:
+        console.print("[red]无任何有效 uid[/red]")
+        return
+
+    console.print(f"[cyan]>>> 批量抓取 {len(uids)} 个用户 (max={max_count}/user)[/cyan]")
+    asyncio.run(_run_users(uids, max_count, only_original, since_date, cookie))
+
+
+async def _run_users(
+    uids: list[int], max_count: int, only_original: bool,
+    since_date: date_type | None, cookie: str | None,
+) -> None:
+    await init_db()
+    sm = get_sessionmaker()
+    async with sm() as session:
+        us = UserService(session)
+        ws = WeiboService(session)
+        async with AsyncWeiboClient(cookie=cookie) as client:
+            for idx, uid in enumerate(uids, 1):
+                console.print(
+                    f"\n[yellow]>>> [{idx}/{len(uids)}] 抓取用户 {uid}...[/yellow]"
+                )
+                try:
+                    user = await us.fetch_and_upsert(uid, client=client)
+                    await session.commit()
+                    console.print(
+                        f"[green]✓[/green] [bold]{user.screen_name}[/bold] "
+                        f"(微博 {user.statuses_count} / 粉丝 {user.followers_count})"
+                    )
+                    count = 0
+                    async for w in ws.crawl_user(
+                        uid, client=client, max_count=max_count,
+                        only_original=only_original, since=since_date,
+                    ):
+                        count += 1
+                        tag = "🔁" if w.is_retweet else "📝"
+                        preview = (w.text or "")[:60].replace("\n", " ")
+                        console.print(f"  {tag} [{count}] {w.weibo_id}  {preview}")
+                        if count % 10 == 0:
+                            await session.commit()
+                    await session.commit()
+                    console.print(f"[bold green]✓ uid={uid} 完成, 抓 {count} 条[/bold green]")
+                except Exception as e:
+                    console.print(f"[red]✗ uid={uid} 失败: {e}[/red]")
+                    await session.rollback()
 
 
 async def _run_user(
@@ -92,34 +185,8 @@ async def _run_user(
     since_date: date_type | None,
     cookie: str | None,
 ) -> None:
-    await init_db()
-    sm = get_sessionmaker()
-    async with sm() as session:
-        us = UserService(session)
-        ws = WeiboService(session)
-        async with AsyncWeiboClient(cookie=cookie) as client:
-            console.print(f"[yellow]>>> 抓取用户 {uid}...[/yellow]")
-            user = await us.fetch_and_upsert(uid, client=client)
-            await session.commit()
-            console.print(
-                f"[green]✓[/green] 用户: [bold]{user.screen_name}[/bold] "
-                f"(微博 {user.statuses_count} / 粉丝 {user.followers_count})"
-            )
-
-            console.print(f"[yellow]>>> 翻页抓取微博 (max={max_count})...[/yellow]")
-            count = 0
-            async for w in ws.crawl_user(
-                uid, client=client, max_count=max_count,
-                only_original=only_original, since=since_date,
-            ):
-                count += 1
-                tag = "🔁" if w.is_retweet else "📝"
-                preview = (w.text or "")[:60].replace("\n", " ")
-                console.print(f"  {tag} [{count}] {w.weibo_id}  {preview}")
-                if count % 10 == 0:
-                    await session.commit()
-            await session.commit()
-            console.print(f"[bold green]✓ 完成, 共抓 {count} 条[/bold green]")
+    """单用户抓取 (保留以兼容旧调用, 内部走 _run_users)."""
+    await _run_users([uid], max_count, only_original, since_date, cookie)
 
 
 @cli.command()

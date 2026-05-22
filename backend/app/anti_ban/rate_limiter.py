@@ -59,23 +59,27 @@ class TokenBucketLimiter:
             await asyncio.sleep(max(0.05, wait))
 
     def report_response_time(self, ms: float) -> None:
+        """同步 fast-path. 调用方应在 acquire() 之后, 单 coroutine 上下文内调.
+
+        注: 修改的字段是 float, Python GIL 保证赋值原子, 高并发下偶发的
+        ±0.1 速率漂移是可接受的 (EMA 自我矫正). 严格强一致用 lock 版本.
+        """
         if not self._adaptive or ms <= 0:
             return
-        # EMA 平滑
         alpha = 0.2
-        self._ema_response_ms = (1 - alpha) * self._ema_response_ms + alpha * ms
-        # 响应 < 500ms 加速 10%, > 2000ms 降速 20%
-        if self._ema_response_ms < 500 and self._current_rate < self._initial_rate * 2:
-            self._current_rate = min(self._initial_rate * 2, self._current_rate * 1.1)
-        elif self._ema_response_ms > 2000:
-            self._current_rate = max(self._initial_rate * 0.2, self._current_rate * 0.8)
+        new_ema = (1 - alpha) * self._ema_response_ms + alpha * ms
+        self._ema_response_ms = new_ema
+        cur = self._current_rate
+        if new_ema < 500 and cur < self._initial_rate * 2:
+            self._current_rate = min(self._initial_rate * 2, cur * 1.1)
+        elif new_ema > 2000:
+            self._current_rate = max(self._initial_rate * 0.2, cur * 0.8)
 
     def report_rate_limited(self) -> None:
-        """收到 429 / 验证码信号时调 — 指数退避."""
+        """收到 429 / 验证码信号时调 — 指数退避. 字段原子赋值."""
         self._consecutive_429 += 1
         backoff = min(300.0, 5.0 * (2 ** (self._consecutive_429 - 1)))
         self._backoff_until = time.monotonic() + backoff
-        # 同时永久降速
         self._current_rate = max(self._initial_rate * 0.1, self._current_rate * 0.5)
         logger.warning(
             "限频检测, 退避 %.1fs, 速率降至 %.2f req/sec (连续 %d 次)",

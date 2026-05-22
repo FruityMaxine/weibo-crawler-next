@@ -1,11 +1,11 @@
 {
   "name": "weibo-crawler-next-web",
   "private": true,
-  "version": "0.4.0.0",
+  "version": "0.4.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173",
-    "build": "tsc -b && vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1 --port 4173",
     "lint": "eslint src --ext ts,tsx --max-warnings 0",
     "typecheck": "tsc --noEmit"

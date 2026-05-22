@@ -23,9 +23,10 @@ services:
       # 宿主端口仅暴露到本机 loopback, Caddy/Nginx 反代到公网
       - "127.0.0.1:28800:28800"
     environment:
-      # WCN_HOST 必须由用户在 .env 中显式设置 (容器内 bind 网卡)
+      # WCN_HOST 留空时, settings.py 在容器内自动切到 IPv6 双栈通配 (::)
+      # 让宿主 ports 映射生效. 宿主端口已限制 127.0.0.1:28800, 不会泄露公网.
       # 详见 docs/DEPLOYMENT.md "Docker 部署" 段
-      WCN_HOST: ${WCN_HOST:?需在 .env 中设置 WCN_HOST 容器内监听网卡}
+      WCN_HOST: ${WCN_HOST:-}
       WCN_ENV: ${WCN_ENV:-prod}
       WCN_PORT: 28800
       WCN_DATABASE_URL: ${WCN_DATABASE_URL:-sqlite+aiosqlite:///./data/wcn.db}

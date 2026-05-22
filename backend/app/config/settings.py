@@ -72,9 +72,18 @@ class Settings(BaseSettings):
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
+    def adjust_for_container(self) -> None:
+        """容器内自动调整: 若检测到 /.dockerenv 且 host 仍是 loopback,
+        则切换到 IPv6 双栈通配 `::`, 让宿主 -p 映射生效.
+        宿主层 ports 已限制 `127.0.0.1:28800:28800`, 不会泄露到公网.
+        """
+        if self.host in ("127.0.0.1", "localhost") and Path("/.dockerenv").exists():
+            self.host = "::"
+
 
 @lru_cache
 def get_settings() -> Settings:
     s = Settings()
     s.ensure_dirs()
+    s.adjust_for_container()
     return s

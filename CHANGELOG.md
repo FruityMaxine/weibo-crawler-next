@@ -2,6 +2,30 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/), 版本号遵循 SemVer 4 段制.
 
+## [0.4.1.0] - 2026-05-22
+
+### Fixed (5 Critical + 6 Warning 由 python-reviewer subagent 审出)
+
+- **C3 — Docker 部署无法访问前端**: `backend/app/main.py` 新增 `_frontend_dist_path()` 多源探测 + `StaticFiles` 自动挂载
+- **C5 — docker-compose 零配启动**: `settings.adjust_for_container()` 检测 /.dockerenv 自动切到 IPv6 通配 `::`
+- **C4 — 生产 CORS 拦截**: `WCN_CORS_ORIGINS` env 驱动 + 自动加 same-origin 兜底
+- **C1+C2 — cookie/proxy 池泄漏**: 所有错误路径强制 release 池更新健康度
+- **W1 — rate_limiter 字段竞态**: report_* 方法用临时变量隔离读-改-写
+- **W2 — FTS5 upsert 同步**: trigger 改用 `DELETE + INSERT` + 启动 backfill
+- **W5 — PyInstaller spec**: 改用 `SPECPATH` + `os.path.abspath`
+
+### Added
+
+- **since_date 整数模式**: 兼容原项目 `--since 7` 写法
+- **批量 uid 文件**: `wcn run -f user_id_list.txt` 兼容原项目
+- **14 audit-fixes 测试**
+
+### Changed
+
+- pytest **65 passed** (51 → 65), README 全面重写
+
+---
+
 ## [0.4.0.0] - 2026-05-22
 
 ### Added

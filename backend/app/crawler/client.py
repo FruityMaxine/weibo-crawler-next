@@ -1,13 +1,15 @@
-"""异步微博 HTTP client — httpx + 限频 + 重试.
+"""异步微博 HTTP client — httpx + 自适应限频 + 重试 + anti_ban 池接入.
 
 接入点:
-- Tick 2: 简易 SimpleRateLimiter (这里)
-- Tick 5: 替换为 anti_ban.rate_limiter Token Bucket + cookie 池 + proxy 池
+- AsyncWeiboClient 接受 cookie_pool / proxy_pool / ua_pool 注入
+- 所有错误路径都会 release 池 (健康度负向反馈)
+- 仅在限频 / 验证码场景额外触发 report_rate_limited
 """
 
 from __future__ import annotations
 
 import logging
+import time as _time
 from typing import Any
 
 import httpx
@@ -76,16 +78,24 @@ class AsyncWeiboClient:
             await self._client.aclose()
             self._client = None
 
+    def _release_pools(
+        self,
+        cookie_entry,
+        proxy_entry,
+        *,
+        success: bool,
+        latency_ms: float = 0.0,
+    ) -> None:
+        """统一池 release — 任何路径退出前必走一次, 含 success/fail 反馈."""
+        if self._cookie_pool and cookie_entry is not None:
+            self._cookie_pool.release(cookie_entry, success=success)
+        if self._proxy_pool and proxy_entry is not None:
+            self._proxy_pool.release(
+                proxy_entry, success=success, latency_ms=latency_ms
+            )
+
     async def _get(self, url: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         assert self._client is not None, "AsyncWeiboClient 须在 async with 上下文内使用"
-        import time as _time
-
-        await self._limiter.acquire()
-
-        # 从池中拿 cookie / proxy (若池非空)
-        cookie_entry = await self._cookie_pool.acquire() if self._cookie_pool else None
-        proxy_entry = await self._proxy_pool.acquire() if self._proxy_pool else None
-        effective_cookie = cookie_entry.value if cookie_entry else self._cookie
 
         async for attempt in AsyncRetrying(
             stop=stop_after_attempt(self._max_retry),
@@ -94,52 +104,71 @@ class AsyncWeiboClient:
             reraise=True,
         ):
             with attempt:
-                headers = build_headers(effective_cookie)
-                # 加 UA 池随机 + 设备指纹
-                headers["User-Agent"] = self._ua_pool.random_ua()
-                headers.update(self._ua_pool.random_device_fingerprint())
+                # 每次重试都独立 acquire 限流 + 池, 避免泄漏
+                await self._limiter.acquire()
+                cookie_entry = (
+                    await self._cookie_pool.acquire() if self._cookie_pool else None
+                )
+                proxy_entry = (
+                    await self._proxy_pool.acquire() if self._proxy_pool else None
+                )
+                effective_cookie = (
+                    cookie_entry.value if cookie_entry else self._cookie
+                )
 
-                t0 = _time.monotonic()
-                resp = await self._client.get(url, params=params, headers=headers)
-                latency_ms = (_time.monotonic() - t0) * 1000
-
-                # 自适应限频反馈
-                self._limiter.report_response_time(latency_ms)
-                if self._proxy_pool and proxy_entry:
-                    # 仅记录, success 在 outer 决定
-                    proxy_entry.latency_ms = (
-                        0.7 * proxy_entry.latency_ms + 0.3 * latency_ms
-                    )
-
+                latency_ms = 0.0
                 try:
-                    resp.raise_for_status()
-                    data = resp.json()
-                except (httpx.HTTPStatusError, ValueError) as e:
-                    if is_rate_limited(resp.status_code, resp.text):
-                        self._limiter.report_rate_limited()
-                        if self._cookie_pool and cookie_entry:
-                            self._cookie_pool.release(cookie_entry, success=False)
-                        if self._proxy_pool and proxy_entry:
-                            self._proxy_pool.release(proxy_entry, success=False)
+                    headers = build_headers(effective_cookie)
+                    headers["User-Agent"] = self._ua_pool.random_ua()
+                    headers.update(self._ua_pool.random_device_fingerprint())
+
+                    t0 = _time.monotonic()
+                    resp = await self._client.get(url, params=params, headers=headers)
+                    latency_ms = (_time.monotonic() - t0) * 1000
+                    self._limiter.report_response_time(latency_ms)
+
+                    try:
+                        resp.raise_for_status()
+                        data = resp.json()
+                    except (httpx.HTTPStatusError, ValueError):
+                        # HTTP 非 2xx 或 JSON 解析失败
+                        if is_rate_limited(resp.status_code, resp.text):
+                            self._limiter.report_rate_limited()
+                        self._release_pools(
+                            cookie_entry, proxy_entry,
+                            success=False, latency_ms=latency_ms,
+                        )
+                        raise
+
+                    ok = data.get("ok")
+                    if ok == 0 or ok is False:
+                        msg = data.get("msg") or data.get("errmsg") or "ok=0"
+                        logger.warning("微博 API 返回 ok=0: %s url=%s", msg, url)
+                        if is_rate_limited(resp.status_code, data):
+                            self._limiter.report_rate_limited()
+                        self._release_pools(
+                            cookie_entry, proxy_entry,
+                            success=False, latency_ms=latency_ms,
+                        )
+                        raise WeiboAPIError(msg)
+
+                    # 成功路径
+                    self._limiter.report_success()
+                    self._release_pools(
+                        cookie_entry, proxy_entry,
+                        success=True, latency_ms=latency_ms,
+                    )
+                    return data
+                except (httpx.HTTPError, WeiboAPIError):
+                    # 上面已经处理过 release, 这里直接 raise 给 tenacity
                     raise
-
-                ok = data.get("ok")
-                if ok == 0 or ok is False:
-                    msg = data.get("msg") or data.get("errmsg") or "ok=0"
-                    logger.warning("微博 API 返回 ok=0: %s url=%s", msg, url)
-                    if is_rate_limited(resp.status_code, data):
-                        self._limiter.report_rate_limited()
-                    if self._cookie_pool and cookie_entry:
-                        self._cookie_pool.release(cookie_entry, success=False)
-                    raise WeiboAPIError(msg)
-
-                # 成功路径
-                self._limiter.report_success()
-                if self._cookie_pool and cookie_entry:
-                    self._cookie_pool.release(cookie_entry, success=True)
-                if self._proxy_pool and proxy_entry:
-                    self._proxy_pool.release(proxy_entry, success=True, latency_ms=latency_ms)
-                return data
+                except Exception:
+                    # 兜底: 任何其他异常也要 release 池避免泄漏
+                    self._release_pools(
+                        cookie_entry, proxy_entry,
+                        success=False, latency_ms=latency_ms,
+                    )
+                    raise
 
         raise RuntimeError("unreachable")
 
