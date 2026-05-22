@@ -27,7 +27,12 @@ export function useWebSocket(url = "/ws") {
         setConnected(false);
         if (!stopped) reconnectTimer = window.setTimeout(connect, 3000);
       };
-      ws.onerror = () => ws.close();
+      // v0.6.0.0: error → close 时检查 readyState 避免重复关闭引发双重重连
+      ws.onerror = () => {
+        if (ws.readyState !== WebSocket.CLOSED && ws.readyState !== WebSocket.CLOSING) {
+          ws.close();
+        }
+      };
       ws.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data) as WSMessage;

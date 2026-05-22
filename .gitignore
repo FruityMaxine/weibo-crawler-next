@@ -67,3 +67,6 @@ frontend/.vite/
 frontend/tsconfig.tsbuildinfo
 # 防御: TS 源码目录绝不允许有 .js (tsc -b 残留)
 frontend/src/**/*.js
+
+# v0.6.0.0: 内部开发日志, 含服务器路径, 不入公开仓
+docs/progress/

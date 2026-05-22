@@ -48,7 +48,8 @@ class UserListStore:
         return [f.stem for f in files]
 
     def load(self, name: str) -> list[int]:
-        """加载指定列表的 uid 列表."""
+        """加载指定列表的 uid 列表. v0.6.0.0: 损坏文件给 logger.warning, 不再静默."""
+        import logging
         p = self._dir / f"{self._safe_name(name)}.json"
         if not p.exists():
             return []
@@ -56,17 +57,24 @@ class UserListStore:
             data = json.loads(p.read_text(encoding="utf-8"))
             uids = data.get("uids", [])
             return [int(u) for u in uids if str(u).isdigit()]
-        except (json.JSONDecodeError, ValueError, OSError):
+        except (json.JSONDecodeError, ValueError, OSError) as e:
+            logging.getLogger("wcn.user_list").warning(
+                "用户列表文件损坏 %s: %s — 返回空列表", p, e,
+            )
             return []
 
     def load_full(self, name: str) -> dict:
-        """加载完整数据 (含 labels)."""
+        """加载完整数据 (含 labels). v0.6.0.0: 损坏文件给 warning, 不静默."""
+        import logging
         p = self._dir / f"{self._safe_name(name)}.json"
         if not p.exists():
             return {"name": name, "uids": [], "labels": {}}
         try:
             return json.loads(p.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError) as e:
+            logging.getLogger("wcn.user_list").warning(
+                "用户列表文件损坏 %s: %s — 返回空数据", p, e,
+            )
             return {"name": name, "uids": [], "labels": {}}
 
     def save(self, name: str, uids: list[int], labels: dict[str, str] | None = None) -> Path:

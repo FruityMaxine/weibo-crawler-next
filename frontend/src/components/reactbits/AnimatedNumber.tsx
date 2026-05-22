@@ -29,7 +29,11 @@ export function AnimatedNumber({ value, duration = 800, className }: AnimatedNum
       else prev.current = value;
     };
     raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
+    // v0.6.0.0: cleanup 同步 prev.current 防卸载/重 mount 时从中间值跳起
+    return () => {
+      cancelAnimationFrame(raf);
+      prev.current = value;
+    };
   }, [value, duration]);
 
   return <span className={className}>{display.toLocaleString()}</span>;

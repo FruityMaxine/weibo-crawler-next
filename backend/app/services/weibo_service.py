@@ -30,11 +30,29 @@ class WeiboService:
         max_count: int | None = None,
         since: date | None = None,
         only_original: bool = False,
+        max_page: int | None = None,
+        empty_page_threshold: int | None = None,
     ) -> AsyncIterator[Weibo]:
-        """翻页抓取用户微博. yield 每条入库后的 Weibo."""
+        """翻页抓取用户微博. yield 每条入库后的 Weibo.
+
+        v0.6.0.0 加守卫:
+          - max_page: 单用户最多翻页数 (默认从 settings 读, default 50)
+          - empty_page_threshold: 连续 N 页全部为广告/非微博卡 → 强终 (default 3)
+          - 这两个守卫防止"广告卡密集时 page_yielded=0 但 cards 非空"的死循环
+        """
+        from backend.app.config import get_settings
+        s = get_settings()
+        max_page = max_page if max_page is not None else s.crawler_max_page
+        empty_threshold = (
+            empty_page_threshold
+            if empty_page_threshold is not None
+            else s.crawler_empty_page_threshold
+        )
+
         page = 1
         fetched = 0
-        while True:
+        consecutive_empty = 0
+        while page <= max_page:
             payload = await client.get_user_weibo_page(uid, page=page)
             cards = iter_weibo_cards(payload)
             if not cards:
@@ -61,9 +79,22 @@ class WeiboService:
                     return
 
             if page_yielded == 0:
-                logger.info("page=%s 全部为非微博卡片, 终止", page)
-                break
+                consecutive_empty += 1
+                logger.info(
+                    "page=%s 无微博卡 (%d/%d 连续空页)",
+                    page, consecutive_empty, empty_threshold,
+                )
+                if consecutive_empty >= empty_threshold:
+                    logger.warning(
+                        "uid=%s 连续 %d 空页, 强制终止防死循环",
+                        uid, consecutive_empty,
+                    )
+                    break
+            else:
+                consecutive_empty = 0
             page += 1
+        else:
+            logger.warning("uid=%s 达 max_page=%d, 强制终止", uid, max_page)
 
     async def upsert(self, data: dict[str, Any]) -> Weibo:
         pic_urls = data.pop("pic_urls", []) or []

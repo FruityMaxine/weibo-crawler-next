@@ -2,6 +2,32 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/), 版本号遵循 SemVer 4 段制.
 
+## [0.6.0.0] - 2026-05-22
+
+> **组 2 Tick 2** · 3 reviewer 联审找 4 Critical + 14 Warning, 本 tick 修 2 Critical + 7 Warning.
+
+### Fixed (Critical)
+- **anti_ban 死代码**: executor / CLI / TUI 三处 `AsyncWeiboClient(cookie=...)` 都不传池, 系统不触发. 新建 `factory.get_pools()` 全局单例工厂注入三池
+- **weibo_service.crawl_user 广告卡死循环**: 加 `max_page` (50) + `empty_page_threshold` (3 连空页强终) 双守卫
+
+### Added
+- `backend/app/anti_ban/factory.py` 工厂模块
+- settings 5 新字段: `cookie_pool` / `proxy_pool` / `crawler_max_page` / `crawler_empty_page_threshold` / `ua_pool_mobile_weight`
+- 12 新测试 (`test_anti_ban_factory.py` + `test_weibo_service_pagination.py`)
+
+### Changed (7 零碎)
+- `_run_users` 每 uid 独立 session
+- `_run_crawl_batch` init_db 提批次外
+- `ConfigScreen` .env 写入加引号保护
+- `UserListStore` JSON 损坏 logger.warning
+- `useWebSocket` onerror readyState 守卫
+- `AnimatedNumber` cleanup 同步 prev.current
+- README binary 版本占位 + `.gitignore` 加 `docs/progress/`
+
+### Tests: 92 passed (+12)
+
+---
+
 ## [0.5.1.0] - 2026-05-22
 
 > 用户实测 v0.5.0.0 反馈 3 个 bug + 1 个新需求, 全部修复.

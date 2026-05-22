@@ -6,6 +6,7 @@ import logging
 import traceback
 from datetime import date
 
+from backend.app.anti_ban import get_pools
 from backend.app.crawler import AsyncWeiboClient
 from backend.app.db.base import get_sessionmaker
 from backend.app.services import TaskService, UserService, WeiboService
@@ -41,7 +42,15 @@ async def run_user_crawl(task_id: int, cookie_override: str | None = None) -> No
             us = UserService(session)
             ws = WeiboService(session)
             total = 0
-            async with AsyncWeiboClient(cookie=cookie_override) as client:
+            # v0.6.0.0: 注入 anti_ban 三池 (cookie / proxy / UA)
+            # 修之前死代码问题: anti_ban 系统从未在生产路径触发
+            cookie_pool, proxy_pool, ua_pool = get_pools()
+            async with AsyncWeiboClient(
+                cookie=cookie_override,
+                cookie_pool=cookie_pool,
+                proxy_pool=proxy_pool,
+                ua_pool=ua_pool,
+            ) as client:
                 await us.fetch_and_upsert(task.uid, client=client)
                 async for _ in ws.crawl_user(
                     task.uid, client=client, max_count=max_count, only_original=only_original

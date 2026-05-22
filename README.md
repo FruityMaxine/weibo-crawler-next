@@ -218,8 +218,9 @@ unit 文件已配 `ProtectSystem=full` + `ReadWritePaths` 沙箱.
 从 [Releases](https://github.com/FruityMaxine/weibo-crawler-next/releases) 下载对应平台 binary, 直接运行:
 
 ```bash
-chmod +x wcn-v0.4.2.0-linux-x64
-./wcn-v0.4.2.0-linux-x64 serve
+# 把 <version> 换成 Release 页对应版本号 (如 v0.6.0.0)
+chmod +x wcn-<version>-linux-x64
+./wcn-<version>-linux-x64 serve
 ```
 
 binary 内嵌前端 dist, 无需额外依赖. 跨平台支持 Linux / macOS / Windows.

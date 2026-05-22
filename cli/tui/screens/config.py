@@ -91,7 +91,10 @@ class ConfigScreen(Screen):
 
         for k, v in changes.items():
             env_key = f"WCN_{k.upper()}"
-            line = f"{env_key}={v}"
+            # v0.6.0.0: 引号保护 — 值含空格/特殊字符 (cookie/secret) 时
+            # .env 解析才不会出错. 已含 " 的值用 \" escape
+            v_str = str(v).replace('"', '\\"')
+            line = f'{env_key}="{v_str}"'
             if env_key in existing_keys:
                 existing_lines[existing_keys[env_key]] = line
             else:

@@ -143,16 +143,28 @@ async def _run_users(
     uids: list[int], max_count: int, only_original: bool,
     since_date: date_type | None, cookie: str | None,
 ) -> None:
+    """批量抓取多用户 — v0.6.0.0 改:
+       - 每 uid 独立 session (rollback 不跨用户)
+       - 接入 anti_ban 三池 (cookie/proxy/UA)
+    """
+    from backend.app.anti_ban import get_pools
     await init_db()
     sm = get_sessionmaker()
-    async with sm() as session:
-        us = UserService(session)
-        ws = WeiboService(session)
-        async with AsyncWeiboClient(cookie=cookie) as client:
-            for idx, uid in enumerate(uids, 1):
-                console.print(
-                    f"\n[yellow]>>> [{idx}/{len(uids)}] 抓取用户 {uid}...[/yellow]"
-                )
+    cookie_pool, proxy_pool, ua_pool = get_pools()
+    async with AsyncWeiboClient(
+        cookie=cookie,
+        cookie_pool=cookie_pool,
+        proxy_pool=proxy_pool,
+        ua_pool=ua_pool,
+    ) as client:
+        for idx, uid in enumerate(uids, 1):
+            console.print(
+                f"\n[yellow]>>> [{idx}/{len(uids)}] 抓取用户 {uid}...[/yellow]"
+            )
+            # 每个 uid 独立 session, 一个失败不影响其他
+            async with sm() as session:
+                us = UserService(session)
+                ws = WeiboService(session)
                 try:
                     user = await us.fetch_and_upsert(uid, client=client)
                     await session.commit()

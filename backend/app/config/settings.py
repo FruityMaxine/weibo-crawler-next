@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     crawler_timeout: int = Field(default=20, description="单次 HTTP 超时秒")
     crawler_retry_max: int = Field(default=3, description="最大重试次数")
     crawler_page_size: int = Field(default=10, description="每页微博数 (1-100)")
+    crawler_max_page: int = Field(default=50, description="单用户最多翻页数, 防广告卡死循环")
+    crawler_empty_page_threshold: int = Field(default=3, description="连续 N 空页强制终止")
+
+    # === anti_ban 池配置 (v0.6.0.0 引入) ===
+    cookie_pool: str = Field(default="", description="多 cookie 池, ; 分号分隔")
+    proxy_pool: str = Field(default="", description="多 proxy 池, ; 分号分隔 (http:// 或 socks5://)")
+    ua_pool_mobile_weight: float = Field(default=0.7, description="UA 池移动端权重")
 
     # === 调度器 ===
     scheduler_enabled: bool = Field(default=True, description="开机自启 APScheduler")

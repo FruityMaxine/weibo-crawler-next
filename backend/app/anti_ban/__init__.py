@@ -20,6 +20,7 @@ from backend.app.anti_ban.ua_pool import UAPool
 from backend.app.anti_ban.rate_limiter import TokenBucketLimiter
 from backend.app.anti_ban.retry import exponential_backoff_with_jitter
 from backend.app.anti_ban.captcha_detector import detect_captcha, is_rate_limited
+from backend.app.anti_ban.factory import get_pools, reset_pools
 
 __all__ = [
     "CookiePool",
@@ -29,4 +30,6 @@ __all__ = [
     "exponential_backoff_with_jitter",
     "detect_captcha",
     "is_rate_limited",
+    "get_pools",
+    "reset_pools",
 ]

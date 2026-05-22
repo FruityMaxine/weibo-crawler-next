@@ -172,13 +172,22 @@ class CrawlScreen(Screen):
     async def _run_crawl_batch(
         self, uids: list[int], max_count: int, since_date, cookie_override: str | None
     ) -> None:
-        """顺序抓取多个 UID, 单个失败不影响其他."""
+        """顺序抓取多个 UID, 单个失败不影响其他.
+
+        v0.6.0.0: init_db 在 batch 开始一次, 不在每个 _run_crawl 内重复.
+        """
+        if not self.is_attached:
+            return
         log = self.query_one("#crawl-log", RichLog)
         total_users = len(uids)
         log.write(
             f"[bold #5e6ad2]► 开始批次抓取 {total_users} 用户 "
             f"(每个 max={max_count})[/]"
         )
+
+        # init_db 提到 batch 外, 多 uid 共享一次 schema 检查
+        await init_db()
+
         try:
             for idx, uid in enumerate(uids, 1):
                 log.write(f"\n[bold #4ec3ff]── [{idx}/{total_users}] uid={uid} ──[/]")
@@ -243,18 +252,33 @@ class CrawlScreen(Screen):
     async def _run_crawl(
         self, uid: int, max_count: int, since_date, cookie_override: str | None
     ) -> None:
-        """抓单个用户. 由 action_submit (单 UID) 或 _run_crawl_batch (批次) 调用."""
+        """抓单个用户. 由 action_submit (单 UID) 或 _run_crawl_batch (批次) 调用.
+
+        v0.6.0.0:
+          - is_attached 守卫: 屏幕已卸载时不 query_one 防崩
+          - init_db 由 _run_crawl_batch 调一次, 此处不重复
+          - 注入 anti_ban 三池
+        """
+        from backend.app.anti_ban import get_pools
+
+        if not self.is_attached:
+            return
         log = self.query_one("#crawl-log", RichLog)
         bar = self.query_one("#crawl-progress", ProgressBar)
         bar.update(total=max_count, progress=0)
         log.write(f"[#5e6ad2]► uid={uid} max={max_count} since={since_date}[/]")
 
-        await init_db()
         sm = get_sessionmaker()
+        cookie_pool, proxy_pool, ua_pool = get_pools()
         async with sm() as session:
             us = UserService(session)
             ws = WeiboService(session)
-            async with AsyncWeiboClient(cookie=cookie_override) as client:
+            async with AsyncWeiboClient(
+                cookie=cookie_override,
+                cookie_pool=cookie_pool,
+                proxy_pool=proxy_pool,
+                ua_pool=ua_pool,
+            ) as client:
                 log.write(f"[#4ec3ff]→ 拉取用户 {uid} 资料...[/]")
                 user = await us.fetch_and_upsert(uid, client=client)
                 await session.commit()
