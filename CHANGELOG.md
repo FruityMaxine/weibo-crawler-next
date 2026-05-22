@@ -2,6 +2,25 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/), 版本号遵循 SemVer 4 段制.
 
+## [0.8.0.0] - 2026-05-22
+
+> **组 2 Tick 4** · TUI 用户列表管理升级 — 真正的选择弹窗 + 高级编辑屏 + UIDInput 复合 widget.
+
+### Added (3 真新 screen/widget)
+
+- **UserListPickerScreen** (`cli/tui/screens/user_list_picker.py`): ModalScreen 弹窗, 列出所有已保存列表, dismiss 返 `(name, uids)` 给 caller. 修 v0.5.1 之前 `_load_list_dialog` "固定第一个" 缺陷.
+- **UserListEditorScreen** (`cli/tui/screens/user_list_editor.py`): 单列表高级编辑 — 重命名 / 列表 UID CRUD / TextArea 批量粘贴 (一行一 UID 或逗号分隔, 含备注) / 清空
+- **UIDInput widget** (`cli/tui/widgets/uid_input.py`): 复合 widget 单行 UID + 备注 + 删除按钮, 发 `Deleted` 消息父屏处理
+
+### Changed
+
+- `crawl.py._load_list_dialog`: push UserListPickerScreen 弹窗替代写死取第一个
+- `user_lists.py`: 加 [📝 编辑当前列表] 按钮 push 到 UserListEditorScreen
+
+### Tests: 108 passed (+6: 1 picker + 4 editor + 1 widget)
+
+---
+
 ## [0.7.0.0] - 2026-05-22
 
 > **组 2 Tick 3** · 全栈安全防御 + Exporter 资源生命周期重构.

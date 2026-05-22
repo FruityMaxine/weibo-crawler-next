@@ -62,6 +62,7 @@ class UserListsScreen(Screen):
             yield Static("当前列表为空", id="current-list-display", classes="card")
 
             with Horizontal():
+                yield Button("📝 编辑当前列表 (高级)", id="btn-edit-list", classes="-primary")
                 yield Button("🗑 删除当前列表", id="btn-del-list", classes="-danger")
                 yield Button("← 返回", id="btn-back")
 
@@ -160,6 +161,15 @@ class UserListsScreen(Screen):
                 self._current = ""
                 self._refresh_list_options()
                 self._refresh_display()
+            return
+
+        if bid == "btn-edit-list":
+            # v0.8.0.0: push UserListEditorScreen 高级编辑
+            if not self._current:
+                self._notify("先选/建一个列表才能编辑", "warning")
+                return
+            from cli.tui.screens.user_list_editor import UserListEditorScreen
+            await self.app.push_screen(UserListEditorScreen(self._current))
             return
 
     def _notify(self, msg: str, level: str = "info") -> None:

@@ -1,6 +1,6 @@
 [project]
 name = "weibo-crawler-next"
-version = "0.7.0.0"
+version = "0.8.0.0"
 description = "现代化微博数据采集与分析平台 — CLI + WebUI 双模式 / 高阶风控 / 插件化导出"
 readme = "README.md"
 license = { text = "MIT" }

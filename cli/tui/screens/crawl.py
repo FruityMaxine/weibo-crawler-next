@@ -226,28 +226,40 @@ class CrawlScreen(Screen):
         self._notify("已停止.", level="warning")
 
     async def _load_list_dialog(self) -> None:
-        """从用户列表加载 UIDs - 简化版: 列出所有已保存列表, 选第一个加载到日志."""
+        """v0.8.0.0: 推 UserListPickerScreen 让用户真选, 不再固定第一个."""
         log = self.query_one("#crawl-log", RichLog)
         store = UserListStore()
-        lists = store.list_all()
-        if not lists:
+        if not store.list_all():
             log.write("[#d9a300]⚠ 还没有保存的用户列表. 回主菜单选 [用户列表] 创建.[/]")
             self._notify("无已保存列表, 请先在 [用户列表] 屏创建.", level="warning")
             return
 
-        # 选第一个列表加载 (用户后续可在 UserListsScreen 选择)
-        first_name = lists[0]
-        uids = store.load(first_name)
-        log.write(f"[bold #5e6ad2]► 加载列表 '{first_name}' — 共 {len(uids)} 个 UID:[/]")
-        for u in uids:
-            log.write(f"  • {u}")
-        self._notify(
-            f"已加载列表 [bold]{first_name}[/] ({len(uids)} 个 UID). "
-            f"点 [开始] 顺序抓取每个 UID.",
-            level="info",
-        )
-        self._batch_uids = uids
-        self._batch_name = first_name
+        from cli.tui.screens.user_list_picker import UserListPickerScreen
+
+        def _on_picked(result):
+            """Picker dismiss 回调: result = (name, uids) 或 None."""
+            if result is None:
+                self._notify("已取消列表选择", level="info")
+                return
+            name, uids = result
+            self._batch_uids = uids
+            self._batch_name = name
+            try:
+                log2 = self.query_one("#crawl-log", RichLog)
+                log2.write(
+                    f"[bold #5e6ad2]► 已加载列表 '{name}' — 共 {len(uids)} 个 UID:[/]"
+                )
+                for u in uids:
+                    log2.write(f"  • {u}")
+            except Exception:
+                pass
+            self._notify(
+                f"已加载列表 [bold]{name}[/] ({len(uids)} 个 UID). "
+                f"点 [开始] 顺序抓取每个 UID.",
+                level="success",
+            )
+
+        await self.app.push_screen(UserListPickerScreen(), callback=_on_picked)
 
     async def _run_crawl(
         self, uid: int, max_count: int, since_date, cookie_override: str | None
