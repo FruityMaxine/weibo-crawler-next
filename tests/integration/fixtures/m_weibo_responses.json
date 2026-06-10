@@ -1,0 +1,119 @@
+{
+  "user_index_dilireba": {
+    "ok": 1,
+    "data": {
+      "userInfo": {
+        "id": 1669879400,
+        "screen_name": "迪丽热巴",
+        "description": "演员 / Dilraba Dilmurat",
+        "verified": true,
+        "verified_type": 0,
+        "verified_reason": "演员, 经纪公司艺人",
+        "statuses_count": 5000,
+        "followers_count": 80000000,
+        "follow_count": 200,
+        "gender": "f",
+        "urank": 45,
+        "mbrank": 7,
+        "avatar_hd": "https://wx.sinaimg.cn/orj480/637aa97aly1.jpg"
+      }
+    }
+  },
+  "user_index_huge": {
+    "ok": 1,
+    "data": {
+      "userInfo": {
+        "id": 1223178222,
+        "screen_name": "胡歌",
+        "description": "演员",
+        "verified": true,
+        "verified_type": 0,
+        "statuses_count": 3500,
+        "followers_count": 70000000,
+        "follow_count": 150,
+        "gender": "m"
+      }
+    }
+  },
+  "weibo_page_normal": {
+    "ok": 1,
+    "data": {
+      "cards": [
+        {
+          "card_type": 9,
+          "mblog": {
+            "id": "FIX_W001",
+            "bid": "AbCdEf001",
+            "text": "今天天气真好, 阳光明媚 #日常分享#",
+            "source": "iPhone 15 Pro",
+            "attitudes_count": 5000,
+            "comments_count": 1200,
+            "reposts_count": 300,
+            "user": {"id": 1669879400, "screen_name": "迪丽热巴"},
+            "pics": [
+              {"large": {"url": "https://wx.sinaimg.cn/large/pic1.jpg"}},
+              {"large": {"url": "https://wx.sinaimg.cn/large/pic2.jpg"}}
+            ]
+          }
+        },
+        {
+          "card_type": 9,
+          "mblog": {
+            "id": "FIX_W002",
+            "bid": "AbCdEf002",
+            "text": "工作中 @工作伙伴",
+            "source": "微博 weibo.com",
+            "attitudes_count": 3000,
+            "comments_count": 500,
+            "reposts_count": 100,
+            "user": {"id": 1669879400}
+          }
+        }
+      ]
+    }
+  },
+  "weibo_page_with_retweet": {
+    "ok": 1,
+    "data": {
+      "cards": [
+        {
+          "card_type": 9,
+          "mblog": {
+            "id": "FIX_RT001",
+            "text": "看了这篇文章, 觉得很有趣",
+            "user": {"id": 1669879400},
+            "retweeted_status": {
+              "id": "ORIG_W500",
+              "text": "原文内容",
+              "user": {"id": 88888888}
+            },
+            "attitudes_count": 100,
+            "comments_count": 20,
+            "reposts_count": 5
+          }
+        }
+      ]
+    }
+  },
+  "weibo_page_empty": {
+    "ok": 1,
+    "data": {"cards": []}
+  },
+  "weibo_page_ad_only": {
+    "ok": 1,
+    "data": {
+      "cards": [
+        {"card_type": 11, "card_group": [{"card_type": 17}]},
+        {"card_type": 7, "page_id": "ad_page"}
+      ]
+    }
+  },
+  "rate_limited": {
+    "ok": 0,
+    "msg": "操作过于频繁, 请稍后再试"
+  },
+  "captcha_required": {
+    "ok": 0,
+    "msg": "需要验证码"
+  }
+}
